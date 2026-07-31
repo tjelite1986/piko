@@ -71,6 +71,10 @@ public class Settings {
     public static final BooleanSetting ENABLE_DOWNLOAD = new BooleanSetting("enable_download", true);
     public static final BooleanSetting ENABLE_DIRECT_DOWNLOAD = new BooleanSetting("enable_direct_download", false);
     public static final BooleanSetting DOWNLOAD_USERNAME_FOLDER = new BooleanSetting("download_username_folder", false);
+    public static final BooleanSetting SAVE_POST_METADATA = new BooleanSetting("save_post_metadata", false);
+    public static final BooleanSetting DIRECT_DOWNLOAD_ALL = new BooleanSetting("direct_download_all", false);
+    // On by default: skipping a file you already have is what the downloader has always done.
+    public static final BooleanSetting DISABLE_DUPLICATE_DOWNLOAD = new BooleanSetting("disable_duplicate_download", true);
     // Should be kept empty by default as its handled in `StorageUtils.java`
     public static final StringSetting CUSTOM_DOWNLOAD_PATH = new StringSetting("custom_download_path", "");
     public static final StringSetting EXTERNAL_DOWNLOADER_PACKAGE_NAME = new StringSetting("external_downloader_package_name", "");

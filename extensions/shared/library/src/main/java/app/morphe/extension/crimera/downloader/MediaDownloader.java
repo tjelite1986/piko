@@ -25,6 +25,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -63,6 +64,54 @@ public class MediaDownloader {
         processNext();
     }
 
+    /**
+     * Writes JSON straight to the download folder instead of fetching it, for sidecar
+     * files that accompany a media download (post metadata and the like).
+     * <p>
+     * It runs on the same single-thread executor as the downloads, so the sidecar is
+     * written after the media file it belongs to and never races with it — which holds
+     * only if the caller enqueued that media first. Ordering is all it guarantees: the
+     * sidecar is written whether or not that download succeeded, which is what lets a
+     * re-download fill in metadata for a file that is already on disk. No notification
+     * is posted: a sidecar is a byproduct of a download the user already got told about.
+     */
+    public void enqueueJson(String content, String subFolder, String fileName) {
+        if (!StorageUtils.checkStoragePermissions()) {
+            StorageUtils.allowStorageAccess();
+            return;
+        }
+        executor.execute(() -> writeJsonFile(content, subFolder, fileName));
+    }
+
+    private void writeJsonFile(String content, String subFolder, String fileName) {
+        try {
+            Uri targetDirectoryUri = getTargetDirectoryUri(subFolder);
+            // Same rule as the media itself: an existing file is left alone.
+            if (findChildDocument(targetDirectoryUri, fileName, null) != null) return;
+
+            Uri outputDocumentUri = DocumentsContract.createDocument(
+                    context.getContentResolver(),
+                    targetDirectoryUri,
+                    "application/json",
+                    fileName
+            );
+            if (outputDocumentUri == null) {
+                throw new IOException("Could not create sidecar file " + fileName);
+            }
+
+            try (OutputStream output = context.getContentResolver().openOutputStream(outputDocumentUri)) {
+                if (output == null) {
+                    throw new IOException("Could not open sidecar file " + fileName);
+                }
+                output.write(content.getBytes(StandardCharsets.UTF_8));
+                output.flush();
+            }
+        } catch (Exception e) {
+            // A missing sidecar must never look like a failed download.
+            PikoUtils.logger(e);
+        }
+    }
+
     private void processNext() {
         if (isDownloading || queue.isEmpty()) return;
         isDownloading = true;
@@ -91,18 +140,22 @@ public class MediaDownloader {
         notificationManager.notify(notificationId, builder.build());
 
         try {
-            Uri targetDirectoryUri = getTargetDirectoryUri(request);
-            if (findChildDocument(targetDirectoryUri, request.fileName, null) != null) {
-                showToast(ExtensionStrings.DOWNLOAD_MEDIA_EXISTS);
-                notificationManager.cancel(notificationId);
-                return;
+            Uri targetDirectoryUri = getTargetDirectoryUri(request.subFolder);
+            String fileName = request.fileName;
+            if (findChildDocument(targetDirectoryUri, fileName, null) != null) {
+                if (!request.allowDuplicate) {
+                    showToast(ExtensionStrings.DOWNLOAD_MEDIA_EXISTS);
+                    notificationManager.cancel(notificationId);
+                    return;
+                }
+                fileName = nextFreeName(targetDirectoryUri, fileName);
             }
 
             outputDocumentUri = DocumentsContract.createDocument(
                     context.getContentResolver(),
                     targetDirectoryUri,
-                    getMimeType(request.fileName),
-                    request.fileName
+                    getMimeType(fileName),
+                    fileName
             );
             if (outputDocumentUri == null) {
                 throw new IOException("Could not create download file");
@@ -155,7 +208,9 @@ public class MediaDownloader {
             downloadCompleted = true;
 
             final int finalNotificationId = notificationId;
-            final String finalFileName = request.fileName;
+            // The resolved name, which differs from the requested one when a duplicate
+            // was renamed — the notification should name the file that actually landed.
+            final String finalFileName = fileName;
             final String downloadCompletedString = ExtensionStrings.DOWNLOAD_COMPLETED + finalFileName;
 
             mainHandler.post(() -> {
@@ -190,7 +245,28 @@ public class MediaDownloader {
         mainHandler.post(() -> PikoUtils.toast(msg));
     }
 
-    private Uri getTargetDirectoryUri(DownloadRequest request) throws Exception {
+    /**
+     * Finds a free name next to an existing file by counting up: "clip.mp4" becomes
+     * "clip (1).mp4", then "clip (2).mp4". Gives up after a sane number of tries so a
+     * directory that cannot be read never turns into an endless loop.
+     */
+    private String nextFreeName(Uri targetDirectoryUri, String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        String extension = dot > 0 ? fileName.substring(dot) : "";
+
+        for (int index = 1; index <= 999; index++) {
+            String candidate = base + " (" + index + ")" + extension;
+            if (findChildDocument(targetDirectoryUri, candidate, null) == null) {
+                return candidate;
+            }
+        }
+        // Every slot taken: fall back to the original name and let createDocument
+        // decide, rather than silently dropping the download.
+        return fileName;
+    }
+
+    private Uri getTargetDirectoryUri(String subFolder) throws Exception {
         Uri treeUri = StorageUtils.getDownloadTreeUri();
         if (treeUri == null) {
             throw new IOException("Download folder access is missing");
@@ -201,11 +277,11 @@ public class MediaDownloader {
                 DocumentsContract.getTreeDocumentId(treeUri)
         );
 
-        if (request.subFolder == null || request.subFolder.isBlank()) {
+        if (subFolder == null || subFolder.isBlank()) {
             return parentUri;
         }
 
-        for (String folderName : request.subFolder.split("/")) {
+        for (String folderName : subFolder.split("/")) {
             if (!folderName.isBlank()) {
                 parentUri = getOrCreateDirectory(parentUri, folderName);
             }
