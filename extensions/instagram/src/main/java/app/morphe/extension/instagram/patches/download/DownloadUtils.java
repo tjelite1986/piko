@@ -172,10 +172,14 @@ public class DownloadUtils {
     public static void downloadPost(Context context,  UserSession userSession, Object mediaObject, int position) {
         try {
             boolean ENABLE_DIRECT_DOWNLOAD = Pref.enableDirectDownload() && SettingsStatus.downloadMedia;
+            boolean DIRECT_DOWNLOAD_ALL = Pref.directDownloadAll() && SettingsStatus.downloadMedia;
             position = position < 1 ? 0 : position;
             MediaData mediaInfo = new MediaData(mediaObject, userSession);
             if (ENABLE_DIRECT_DOWNLOAD) {
-                downloadMedia(context, mediaInfo, position, MediaType.ANY);
+                // Without the dialog there is nowhere to pick "Download all" from, so a
+                // carousel would silently give up everything but the visible slide.
+                boolean wholeCarousel = DIRECT_DOWNLOAD_ALL && mediaInfo.getCarouselSize() > 1;
+                downloadMedia(context, mediaInfo, wholeCarousel ? -1 : position, MediaType.ANY);
             } else {
                 downloadDialogBox(context, mediaInfo, position);
             }
@@ -195,12 +199,14 @@ public class DownloadUtils {
         MediaDownloader downloader = new MediaDownloader(context);
         String username = mediaInfo.getUserData().getUsername();
         String subFolder = getSubfolderName(username);
+        boolean SAVE_POST_METADATA = Pref.savePostMetadata() && SettingsStatus.downloadMedia;
+        boolean ALLOW_DUPLICATE = !Pref.disableDuplicateDownload();
 
         if (mediaType.equals(MediaType.AUDIO)) {
             AudioMediaInterface audioMedia = mediaInfo.getMediaAt(position).getAudioMedia();
             String audioUrl = audioMedia.getAudioUrl();
             String fileName = audioMedia.getDownloadName() + ".mp3";
-            downloader.enqueue(new DownloadRequest(audioUrl, Constants.DEFAULT_AUDIO_FOLDER, fileName));
+            downloader.enqueue(new DownloadRequest(audioUrl, Constants.DEFAULT_AUDIO_FOLDER, fileName, ALLOW_DUPLICATE));
 
         } else if (position != -1) {
             MediaData mediaData = mediaInfo.getMediaAt(position);
@@ -212,7 +218,10 @@ public class DownloadUtils {
             }
             String fileName = username+"_"+mediaData.getDownloadFilename(mediaType);
 
-            downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName));
+            downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName, ALLOW_DUPLICATE));
+            if (SAVE_POST_METADATA) {
+                PostMetadata.write(downloader, mediaInfo, mediaData, position, subFolder, fileName);
+            }
 
         } else if (position == -1) {
             int carouselSize = mediaInfo.getCarouselSize();
@@ -221,7 +230,10 @@ public class DownloadUtils {
                 MediaData currentMediaData = mediaInfo.getMediaAt(index);
                 String fileName = username+"_"+currentMediaData.getDownloadFilename(MediaType.ANY);
                 String mediaUrl = currentMediaData.getMediaLink();
-                downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName));
+                downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName, ALLOW_DUPLICATE));
+                if (SAVE_POST_METADATA) {
+                    PostMetadata.write(downloader, mediaInfo, currentMediaData, index, subFolder, fileName);
+                }
             }
         } else {
             Utils.showToastShort("There is nothing to download");
@@ -236,7 +248,7 @@ public class DownloadUtils {
             return;
         }
         MediaDownloader downloader = new MediaDownloader(context);
-        downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName));
+        downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName, !Pref.disableDuplicateDownload()));
     }
 
     public static void externalDownloader(Object mediaObject, int currentMediaIndex){

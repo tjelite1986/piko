@@ -644,6 +644,30 @@ public class ScreenBuilder {
         );
 
         addPreference(
+                helper.switchPreference(
+                        str("piko_save_post_metadata"),
+                        str("piko_save_post_metadata_desc"),
+                        Settings.SAVE_POST_METADATA
+                )
+        );
+
+        addPreference(
+                helper.switchPreference(
+                        str("piko_direct_download_all"),
+                        str("piko_direct_download_all_desc"),
+                        Settings.DIRECT_DOWNLOAD_ALL
+                )
+        );
+
+        addPreference(
+                helper.switchPreference(
+                        str("piko_disable_duplicate_download"),
+                        str("piko_disable_duplicate_download_desc"),
+                        Settings.DISABLE_DUPLICATE_DOWNLOAD
+                )
+        );
+
+        addPreference(
                 helper.buttonPreference(
                         str("piko_download_set_path"),
                         StorageUtils.getCustomPathForDisplay(),

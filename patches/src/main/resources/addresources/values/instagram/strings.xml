@@ -129,6 +129,12 @@ Note: On a clean install, the \'Tip\' animation may appear but will stop on its 
     <string name="piko_enable_direct_download_desc">Downloads the current viewing media without asking for options</string>
     <string name="piko_download_username_folder">Split media by username</string>
     <string name="piko_download_username_folder_desc">Creates subfolders based on username</string>
+    <string name="piko_save_post_metadata">Save post metadata</string>
+    <string name="piko_save_post_metadata_desc">Writes a .json file next to each download with the caption, username, post link and mentions</string>
+    <string name="piko_direct_download_all">Direct download takes the whole carousel</string>
+    <string name="piko_direct_download_all_desc">With direct download on, a post with several slides saves all of them instead of only the visible one</string>
+    <string name="piko_disable_duplicate_download">Disable duplicate download</string>
+    <string name="piko_disable_duplicate_download_desc">Skip media you have already downloaded. Turn off to save it again as \"name (1)\" instead</string>
     <string name="piko_download_current_media">Download current media</string>
     <string name="piko_download_as_image">Download as image</string>
     <string name="piko_video_variants">Video variants</string>

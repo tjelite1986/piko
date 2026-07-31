@@ -222,6 +222,18 @@ public class Pref {
         return SharedPref.getBooleanPref(Settings.DOWNLOAD_USERNAME_FOLDER);
     }
 
+    public static boolean savePostMetadata() {
+        return SharedPref.getBooleanPref(Settings.SAVE_POST_METADATA);
+    }
+
+    public static boolean directDownloadAll() {
+        return SharedPref.getBooleanPref(Settings.DIRECT_DOWNLOAD_ALL);
+    }
+
+    public static boolean disableDuplicateDownload() {
+        return SharedPref.getBooleanPref(Settings.DISABLE_DUPLICATE_DOWNLOAD);
+    }
+
     public static boolean hideNavigationFeed() {
         return SharedPref.getBooleanPref(Settings.HIDE_NAVIGATION_FEED);
     }
