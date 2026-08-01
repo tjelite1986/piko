@@ -19,6 +19,8 @@ import android.os.Looper;
 import android.provider.DocumentsContract;
 
 import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -41,6 +43,8 @@ public class MediaDownloader {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private boolean isDownloading = false;
+    /** The sink of the batch in flight, kept so it can be closed when the queue drains. */
+    private RemoteSink lastRemote;
 
     public MediaDownloader(Context context) {
         this.context = context;
@@ -56,7 +60,9 @@ public class MediaDownloader {
     }
 
     public void enqueue(DownloadRequest request) {
-        if (!StorageUtils.checkStoragePermissions()) {
+        // A remote download never touches local storage, so the folder grant that the
+        // local path cannot work without is not asked for here.
+        if (request.remote == null && !StorageUtils.checkStoragePermissions()) {
             StorageUtils.allowStorageAccess();
             return;
         }
@@ -76,11 +82,27 @@ public class MediaDownloader {
      * is posted: a sidecar is a byproduct of a download the user already got told about.
      */
     public void enqueueJson(String content, String subFolder, String fileName) {
-        if (!StorageUtils.checkStoragePermissions()) {
+        enqueueJson(content, subFolder, fileName, null);
+    }
+
+    /** As above, but uploaded to {@code remote} when one is given. */
+    public void enqueueJson(String content, String subFolder, String fileName, RemoteSink remote) {
+        if (remote == null && !StorageUtils.checkStoragePermissions()) {
             StorageUtils.allowStorageAccess();
             return;
         }
-        executor.execute(() -> writeJsonFile(content, subFolder, fileName));
+        executor.execute(() -> {
+            if (remote == null) {
+                writeJsonFile(content, subFolder, fileName);
+            } else {
+                try {
+                    remote.uploadBytes(content.getBytes(StandardCharsets.UTF_8), subFolder, fileName);
+                } catch (Exception e) {
+                    // A missing sidecar must never look like a failed download.
+                    PikoUtils.logger(e);
+                }
+            }
+        });
     }
 
     private void writeJsonFile(String content, String subFolder, String fileName) {
@@ -113,15 +135,36 @@ public class MediaDownloader {
     }
 
     private void processNext() {
-        if (isDownloading || queue.isEmpty()) return;
+        if (isDownloading) return;
+        if (queue.isEmpty()) {
+            closeRemote();
+            return;
+        }
         isDownloading = true;
         DownloadRequest request = queue.poll();
         if (request != null) {
+            if (request.remote != null) lastRemote = request.remote;
             executor.execute(() -> runDownloadTask(request));
         }
     }
 
+    /**
+     * Hangs up the remote connection once the batch is done. Queued on the executor
+     * rather than closed here, so it lands behind the sidecar writes that were handed
+     * to the same thread while the last media file was still uploading.
+     */
+    private void closeRemote() {
+        RemoteSink sink = lastRemote;
+        if (sink == null) return;
+        lastRemote = null;
+        executor.execute(sink::close);
+    }
+
     private void runDownloadTask(DownloadRequest request) {
+        if (request.remote != null) {
+            runRemoteTask(request);
+            return;
+        }
         int notificationId = (int) System.currentTimeMillis();
         Uri outputDocumentUri = null;
         boolean downloadCompleted = false;
@@ -236,6 +279,107 @@ public class MediaDownloader {
             notificationManager.cancel(notificationId);
             PikoUtils.logger(e);
         } finally {
+            isDownloading = false;
+            processNext();
+        }
+    }
+
+    /**
+     * The remote counterpart of {@link #runDownloadTask}: fetch to a cache file, hand it
+     * to the sink, delete it again. It goes via disk rather than piping the response
+     * straight into the upload because the sink has to know the size up front and a
+     * failed fetch should never reach the server as a truncated file.
+     */
+    private void runRemoteTask(DownloadRequest request) {
+        int notificationId = (int) System.currentTimeMillis();
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder = new Notification.Builder(context, CHANNEL_ID);
+        } else {
+            builder = new Notification.Builder(context);
+        }
+        String startString = ExtensionStrings.DOWNLOAD_ONGOING + request.fileName;
+        builder.setSmallIcon(android.R.drawable.stat_sys_upload)
+                .setContentTitle(startString)
+                .setContentText(request.remote.describe())
+                .setOngoing(true)
+                .setProgress(100, 0, false);
+        notificationManager.notify(notificationId, builder.build());
+
+        File temporary = null;
+        try {
+            showToast(startString);
+            temporary = File.createTempFile("piko_remote_", null, context.getCacheDir());
+
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(request.url);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.connect();
+
+                int length = conn.getContentLength();
+                try (InputStream input = new BufferedInputStream(conn.getInputStream());
+                     OutputStream output = new FileOutputStream(temporary)) {
+                    byte[] buffer = new byte[8192];
+                    long total = 0;
+                    int count;
+                    long lastUpdateTime = 0;
+                    while ((count = input.read(buffer)) != -1) {
+                        total += count;
+                        output.write(buffer, 0, count);
+
+                        if (length > 0) {
+                            // Half the bar is the fetch, the other half the upload.
+                            int per = (int) (total * 50 / length);
+                            long currentTime = System.currentTimeMillis();
+                            if (currentTime - lastUpdateTime > 200) {
+                                builder.setProgress(100, per, false);
+                                notificationManager.notify(notificationId, builder.build());
+                                lastUpdateTime = currentTime;
+                            }
+                        }
+                    }
+                    output.flush();
+                }
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+
+            builder.setProgress(100, 50, false);
+            notificationManager.notify(notificationId, builder.build());
+
+            boolean stored = request.remote.upload(
+                    temporary, request.subFolder, request.fileName, request.allowDuplicate);
+            if (!stored) {
+                showToast(ExtensionStrings.DOWNLOAD_MEDIA_EXISTS);
+                notificationManager.cancel(notificationId);
+                return;
+            }
+
+            final int finalNotificationId = notificationId;
+            final String completedString = ExtensionStrings.DOWNLOAD_COMPLETED + request.fileName;
+            final String destination = request.remote.describe();
+            mainHandler.post(() -> {
+                builder.setSmallIcon(android.R.drawable.stat_sys_upload_done)
+                        .setContentTitle(completedString)
+                        .setContentText(destination)
+                        .setOngoing(false)
+                        .setProgress(0, 0, false);
+                notificationManager.notify(finalNotificationId, builder.build());
+
+                try {
+                    PikoUtils.toast(completedString);
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception e) {
+            showToast(ExtensionStrings.DOWNLOAD_ERROR + e.getMessage());
+            notificationManager.cancel(notificationId);
+            PikoUtils.logger(e);
+        } finally {
+            if (temporary != null) {
+                // noinspection ResultOfMethodCallIgnored
+                temporary.delete();
+            }
             isDownloading = false;
             processNext();
         }

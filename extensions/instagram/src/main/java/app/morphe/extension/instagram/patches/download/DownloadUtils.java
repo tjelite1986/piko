@@ -36,6 +36,7 @@ import app.morphe.extension.crimera.ObjectBrowser;
 import app.morphe.extension.crimera.downloader.MediaDownloader;
 import app.morphe.extension.crimera.downloader.DownloadRequest;
 import app.morphe.extension.crimera.downloader.MediaType;
+import app.morphe.extension.crimera.downloader.RemoteSink;
 import app.morphe.extension.crimera.PikoUtils;
 
 import com.instagram.common.session.UserSession;
@@ -116,6 +117,14 @@ public class DownloadUtils {
 
         if (carouselSize > 1) options.add(str("piko_download_all"));
 
+        // The remote entries only appear once a server is configured, so the list never
+        // offers a destination that would fail the moment it is tapped.
+        boolean remoteAvailable = RemoteSave.isConfigured();
+        if (remoteAvailable) {
+            options.add(str("piko_download_current_media_remote"));
+            if (carouselSize > 1) options.add(str("piko_download_all_remote"));
+        }
+
         CharSequence[] items = options.toArray(new CharSequence[0]);
 
         dialog.addDialogMenuItems(items, new DialogInterface.OnClickListener() {
@@ -140,6 +149,12 @@ public class DownloadUtils {
 
                     } else if (selectedOption.equals(str("piko_download_all"))) {
                         downloadMedia(context, mediaInfo, -1, MediaType.ANY);
+
+                    } else if (selectedOption.equals(str("piko_download_current_media_remote"))) {
+                        downloadMedia(context, mediaInfo, position, MediaType.ANY, true);
+
+                    } else if (selectedOption.equals(str("piko_download_all_remote"))) {
+                        downloadMedia(context, mediaInfo, -1, MediaType.ANY, true);
 
                     } else if (selectedOption.equals(str("piko_download_audio"))) {
                         downloadMedia(context, mediaInfo, position, MediaType.AUDIO);
@@ -179,7 +194,8 @@ public class DownloadUtils {
                 // Without the dialog there is nowhere to pick "Download all" from, so a
                 // carousel would silently give up everything but the visible slide.
                 boolean wholeCarousel = DIRECT_DOWNLOAD_ALL && mediaInfo.getCarouselSize() > 1;
-                downloadMedia(context, mediaInfo, wholeCarousel ? -1 : position, MediaType.ANY);
+                downloadMedia(context, mediaInfo, wholeCarousel ? -1 : position, MediaType.ANY,
+                        RemoteSave.isDirectDefault());
             } else {
                 downloadDialogBox(context, mediaInfo, position);
             }
@@ -192,13 +208,28 @@ public class DownloadUtils {
 
     // Position is set to -1 if we want to download all medias from the media info object.
     public static void downloadMedia(Context context, MediaData mediaInfo, int position, MediaType mediaType) throws Exception {
+        downloadMedia(context, mediaInfo, position, mediaType, false);
+    }
+
+    /**
+     * @param remote save to the configured SFTP server instead of the device. The
+     *               uploader groups by creator no matter what the local "split by
+     *               username" setting says: on the receiving side a folder name is what
+     *               attributes a post to a profile, whereas locally it is a preference.
+     */
+    public static void downloadMedia(Context context, MediaData mediaInfo, int position, MediaType mediaType, boolean remote) throws Exception {
         if(!Utils.isNetworkConnected()){
             Utils.showToastShort(str("piko_no_internet"));
             return;
         }
         MediaDownloader downloader = new MediaDownloader(context);
         String username = mediaInfo.getUserData().getUsername();
-        String subFolder = getSubfolderName(username);
+        RemoteSink remoteSink = remote ? RemoteSave.sink() : null;
+        if (remote && remoteSink == null) {
+            Utils.showToastShort(str("piko_remote_save_not_configured"));
+            return;
+        }
+        String subFolder = remoteSink != null ? username : getSubfolderName(username);
         boolean SAVE_POST_METADATA = Pref.savePostMetadata() && SettingsStatus.downloadMedia;
         boolean ALLOW_DUPLICATE = !Pref.disableDuplicateDownload();
 
@@ -206,7 +237,8 @@ public class DownloadUtils {
             AudioMediaInterface audioMedia = mediaInfo.getMediaAt(position).getAudioMedia();
             String audioUrl = audioMedia.getAudioUrl();
             String fileName = audioMedia.getDownloadName() + ".mp3";
-            downloader.enqueue(new DownloadRequest(audioUrl, Constants.DEFAULT_AUDIO_FOLDER, fileName, ALLOW_DUPLICATE));
+            String audioFolder = remoteSink != null ? subFolder : Constants.DEFAULT_AUDIO_FOLDER;
+            downloader.enqueue(new DownloadRequest(audioUrl, audioFolder, fileName, ALLOW_DUPLICATE, remoteSink));
 
         } else if (position != -1) {
             MediaData mediaData = mediaInfo.getMediaAt(position);
@@ -218,9 +250,9 @@ public class DownloadUtils {
             }
             String fileName = username+"_"+mediaData.getDownloadFilename(mediaType);
 
-            downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName, ALLOW_DUPLICATE));
+            downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName, ALLOW_DUPLICATE, remoteSink));
             if (SAVE_POST_METADATA) {
-                PostMetadata.write(downloader, mediaInfo, mediaData, position, subFolder, fileName);
+                PostMetadata.write(downloader, mediaInfo, mediaData, position, subFolder, fileName, remoteSink);
             }
 
         } else if (position == -1) {
@@ -230,9 +262,9 @@ public class DownloadUtils {
                 MediaData currentMediaData = mediaInfo.getMediaAt(index);
                 String fileName = username+"_"+currentMediaData.getDownloadFilename(MediaType.ANY);
                 String mediaUrl = currentMediaData.getMediaLink();
-                downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName, ALLOW_DUPLICATE));
+                downloader.enqueue(new DownloadRequest(mediaUrl, subFolder, fileName, ALLOW_DUPLICATE, remoteSink));
                 if (SAVE_POST_METADATA) {
-                    PostMetadata.write(downloader, mediaInfo, currentMediaData, index, subFolder, fileName);
+                    PostMetadata.write(downloader, mediaInfo, currentMediaData, index, subFolder, fileName, remoteSink);
                 }
             }
         } else {

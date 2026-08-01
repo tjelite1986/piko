@@ -75,6 +75,16 @@ public class Settings {
     public static final BooleanSetting DIRECT_DOWNLOAD_ALL = new BooleanSetting("direct_download_all", false);
     // On by default: skipping a file you already have is what the downloader has always done.
     public static final BooleanSetting DISABLE_DUPLICATE_DOWNLOAD = new BooleanSetting("disable_duplicate_download", true);
+    // Remote save: upload downloads to an SFTP server instead of the device. Every
+    // field is empty by default — the server is the user's own and nothing here is
+    // guessable, so an unconfigured install simply keeps the remote options hidden.
+    public static final BooleanSetting REMOTE_SAVE = new BooleanSetting("remote_save", false);
+    public static final BooleanSetting REMOTE_SAVE_DIRECT = new BooleanSetting("remote_save_direct", false);
+    public static final StringSetting REMOTE_SAVE_HOST = new StringSetting("remote_save_host", "");
+    public static final StringSetting REMOTE_SAVE_PORT = new StringSetting("remote_save_port", "22");
+    public static final StringSetting REMOTE_SAVE_USER = new StringSetting("remote_save_user", "");
+    public static final StringSetting REMOTE_SAVE_PASSWORD = new StringSetting("remote_save_password", "");
+    public static final StringSetting REMOTE_SAVE_PATH = new StringSetting("remote_save_path", "");
     // Should be kept empty by default as its handled in `StorageUtils.java`
     public static final StringSetting CUSTOM_DOWNLOAD_PATH = new StringSetting("custom_download_path", "");
     public static final StringSetting EXTERNAL_DOWNLOADER_PACKAGE_NAME = new StringSetting("external_downloader_package_name", "");

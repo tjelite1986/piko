@@ -17,6 +17,7 @@ import java.util.TimeZone;
 
 import app.morphe.extension.crimera.PikoUtils;
 import app.morphe.extension.crimera.downloader.MediaDownloader;
+import app.morphe.extension.crimera.downloader.RemoteSink;
 import app.morphe.extension.instagram.entity.MediaData;
 import app.morphe.extension.instagram.entity.UserData;
 
@@ -51,6 +52,13 @@ public class PostMetadata {
      */
     public static void write(MediaDownloader downloader, MediaData post, MediaData media,
                              int mediaIndex, String subFolder, String mediaFileName) {
+        write(downloader, post, media, mediaIndex, subFolder, mediaFileName, null);
+    }
+
+    /** As above, but written to {@code remote} when the media went there too. */
+    public static void write(MediaDownloader downloader, MediaData post, MediaData media,
+                             int mediaIndex, String subFolder, String mediaFileName,
+                             RemoteSink remote) {
         try {
             JSONObject json = new JSONObject();
             json.put("schema_version", SCHEMA_VERSION);
@@ -97,7 +105,7 @@ public class PostMetadata {
             // the request that fetched it, not for re-downloading later.
             json.put("media_url", read(media::getMediaLink));
 
-            downloader.enqueueJson(json.toString(2), subFolder, sidecarName(mediaFileName));
+            downloader.enqueueJson(json.toString(2), subFolder, sidecarName(mediaFileName), remote);
         } catch (Exception e) {
             // The media download itself has already been queued; never fail it over this.
             PikoUtils.logger(e);

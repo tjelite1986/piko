@@ -12,4 +12,6 @@ dependencies {
     compileOnly(libs.morphe.extensions.library)
     compileOnly(libs.annotation)
     compileOnly(libs.appcompat)
+    // Bundled, not compileOnly: the SFTP client has to ride along in the patched APK.
+    implementation(libs.jsch)
 }
