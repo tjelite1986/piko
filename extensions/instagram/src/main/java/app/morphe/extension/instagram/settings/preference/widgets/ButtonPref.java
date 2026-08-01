@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 
 import app.morphe.extension.shared.Utils;
 import app.morphe.extension.shared.Logger;
+import app.morphe.extension.instagram.patches.userprofile.FavoritePages;
 import app.morphe.extension.instagram.settings.ActivityHook;
 import app.morphe.extension.instagram.constants.Constants;
 import app.morphe.extension.instagram.settings.preference.fragments.FragmentHook;
@@ -74,6 +75,9 @@ public class ButtonPref extends Preference {
 
                     } else if (key.equals("piko_export_experiment_mappings")) {
                         InstaUtils.decompileExperiments(true);
+
+                    } else if (key.equals("piko_favorite_pages")) {
+                        FavoritePages.showList(context);
 
                     } else if (key.equals("piko_download_id_mapping")) {
                         DownloadMapping.downloadMapping();

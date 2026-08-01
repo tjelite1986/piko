@@ -110,6 +110,13 @@ Note: On a clean install, the \'Tip\' animation may appear but will stop on its 
     <string name="piko_copy_profile_link">Copy profile link</string>
     <string name="piko_share_this_profile">Share this profile</string>
     <string name="piko_copy_links_from_bio">Copy links from bio</string>
+    <string name="piko_add_to_favorite_pages">Add to favorite pages</string>
+    <string name="piko_remove_from_favorite_pages">Remove from favorite pages</string>
+    <string name="piko_favorite_pages">Favorite pages</string>
+    <string name="piko_favorite_pages_desc">Accounts you marked, opened straight from here</string>
+    <string name="piko_added_to_favorite_pages">Added to favorite pages</string>
+    <string name="piko_removed_from_favorite_pages">Removed from favorite pages</string>
+    <string name="piko_no_favorite_pages">No favorite pages yet</string>
     <string name="piko_no_links_in_bio">No links in this bio</string>
     <string name="piko_download_profile_picture">Download profile picture</string>
     <string name="piko_copied">Copied</string>

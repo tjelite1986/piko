@@ -57,6 +57,10 @@ public class ProfileMoreOption {
             options.add(str("piko_share_this_profile"));
             options.add(str("piko_copy_bio"));
             options.add(str("piko_copy_links_from_bio"));
+            options.add(str(FavoritePages.isFavorite(userData.getUsername())
+                    ? "piko_remove_from_favorite_pages"
+                    : "piko_add_to_favorite_pages"));
+            options.add(str("piko_favorite_pages"));
             if (DEBUG) options.add(str("piko_debug"));
 
             CharSequence[] items = options.toArray(new CharSequence[0]);
@@ -103,6 +107,13 @@ public class ProfileMoreOption {
                                 text = links;
                                 toCopy = true;
                             }
+
+                        } else if (selectedOption.equals(str("piko_add_to_favorite_pages"))
+                                || selectedOption.equals(str("piko_remove_from_favorite_pages"))) {
+                            FavoritePages.toggle(userData.getUsername());
+
+                        } else if (selectedOption.equals(str("piko_favorite_pages"))) {
+                            FavoritePages.showList(context);
 
                         } else if (selectedOption.equals(str("piko_view_profile_picture"))) {
                             ActivityHook.handleUrlIntent(false, userData.getProfilePictureUrl());

@@ -83,6 +83,9 @@ public class Settings {
     // Learned on the first connection and checked on every later one. Clearing it is
     // how a genuinely rebuilt server gets trusted again.
     public static final StringSetting REMOTE_SAVE_HOST_KEY = new StringSetting("remote_save_host_key", "");
+    // Handles marked as favorites, held in the set store rather than a joined string
+    // so a handle containing a separator can never split into two.
+    public static final StringSetting FAVORITE_PAGES = new StringSetting("favorite_pages", "");
     // Should be kept empty by default as its handled in `StorageUtils.java`
     public static final StringSetting CUSTOM_DOWNLOAD_PATH = new StringSetting("custom_download_path", "");
     public static final StringSetting EXTERNAL_DOWNLOADER_PACKAGE_NAME = new StringSetting("external_downloader_package_name", "");
