@@ -12,6 +12,7 @@ import android.content.Context;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.util.TypedValue;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import java.util.ArrayList;
@@ -173,29 +174,61 @@ public class ProfileMoreOption {
         return 0xFFFFFFFF;
     }
 
+    /** Marks our icon so neither hook adds a second one to the same screen. */
+    private static final String ICON_TAG = "piko_profile_options_icon";
+
+    /**
+     * The options entry point: a compact glyph, sized by padding so the touch target
+     * stays comfortable, coloured from the theme so it reads on light and dark alike.
+     */
+    public static TextView createOptionsIcon(Context context, UserData userData) {
+        TextView icon = new TextView(context);
+        icon.setTag(ICON_TAG);
+        icon.setText("\u2630");
+        icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        icon.setTextColor(themeTextColor(context));
+        icon.setContentDescription(str("piko_more_profile_options"));
+        icon.setPadding(Dim.dp8, Dim.dp2, Dim.dp8, Dim.dp2);
+        icon.setOnClickListener(v -> moreOptionsDailogueBox(context, userData));
+        return icon;
+    }
+
+    /** True when this screen already carries the icon, wherever it was placed. */
+    public static boolean alreadyPlaced(View anyViewOnScreen) {
+        return anyViewOnScreen != null && findTagged(anyViewOnScreen.getRootView()) != null;
+    }
+
+    private static View findTagged(View view) {
+        if (view == null) return null;
+        if (ICON_TAG.equals(view.getTag())) return view;
+        if (!(view instanceof ViewGroup)) return null;
+        ViewGroup group = (ViewGroup) view;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View found = findTagged(group.getChildAt(i));
+            if (found != null) return found;
+        }
+        return null;
+    }
+
     public static void addProfileMoreOptionsButton(ViewGroup viewGroup, ProfileInfo profileInfo) {
         try {
             UserData userData = profileInfo.getUserData();
 
             Context context = viewGroup.getContext();
 
-            // A compact glyph rather than a full-width button: the options belong
-            // beside the profile's own small badges, not stretched across the header
-            // where they push the content below out of view.
-            TextView icon = new TextView(context);
-            icon.setText("\u2630");
-            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-            icon.setTextColor(themeTextColor(context));
-            icon.setContentDescription(str("piko_more_profile_options"));
-            // Padding rather than size: it keeps the glyph small while giving the
-            // touch target room to be hit.
-            icon.setPadding(Dim.dp8, Dim.dp4, Dim.dp8, Dim.dp4);
-            icon.setOnClickListener(v -> moreOptionsDailogueBox(context, userData));
-
-            viewGroup.addView(icon);
-            icon.bringToFront();
-            viewGroup.requestLayout();
-            viewGroup.invalidate();
+            // The preferred home for the icon is the follow-status row, placed there
+            // by FriendshipStatusIndicator as it binds the badge. Which of the two
+            // hooks runs first is not ours to decide, so this one waits a frame and
+            // only steps in when that row never got it — the badge is hidden on your
+            // own profile, and off entirely when the indicator setting is.
+            viewGroup.post(() -> {
+                if (alreadyPlaced(viewGroup)) return;
+                TextView icon = createOptionsIcon(context, userData);
+                viewGroup.addView(icon);
+                icon.bringToFront();
+                viewGroup.requestLayout();
+                viewGroup.invalidate();
+            });
         } catch (Exception e) {
             Logger.printException(() -> "Failed to add profile more button: ", e);
         }

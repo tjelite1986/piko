@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Arrays;
 import android.widget.TextView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.content.Context;
 import android.app.Dialog;
 import android.content.DialogInterface;
@@ -113,6 +114,18 @@ public class FriendshipStatusIndicator {
                         friendshipStatusDialogBox(v.getContext(), userFriendshipStatus);
                     }
                 });
+
+                // The profile options belong on this row, right after the badge —
+                // it is the only line in the header with room for a small control,
+                // and the badge is the one view here we are handed directly.
+                if (Pref.isMoreOptionsOnProfilePatched()
+                        && badgeView.getParent() instanceof ViewGroup
+                        && !ProfileMoreOption.alreadyPlaced(badgeView)) {
+                    ViewGroup row = (ViewGroup) badgeView.getParent();
+                    row.addView(
+                            ProfileMoreOption.createOptionsIcon(row.getContext(), viewingUserData),
+                            row.indexOfChild(badgeView) + 1);
+                }
 
 
 
