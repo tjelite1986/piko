@@ -31,7 +31,7 @@ import app.morphe.extension.instagram.entity.UserData;
 public class PostMetadata {
 
     /** Bumped when the field layout changes, so consumers can tell the shapes apart. */
-    private static final int SCHEMA_VERSION = 1;
+    private static final int SCHEMA_VERSION = 2;
 
     /** A MediaData getter, which may throw when Instagram's object shape differs. */
     private interface Field<T> {
@@ -71,6 +71,13 @@ public class PostMetadata {
                 json.put("username", read(user::getUsername));
                 json.put("full_name", read(user::getFullName));
                 json.put("user_id", read(user::getUserId));
+                // The profile of whoever posted, so a library built from these
+                // downloads can show a real person rather than a bare handle.
+                // The picture is a URL, not the bytes: the receiving side fetches
+                // it once per creator instead of once per slide of a carousel.
+                json.put("bio", read(user::getBio));
+                json.put("profile_pic_url", read(user::getProfilePictureUrl));
+                json.put("is_verified", read(user::isVerified));
             }
 
             String shortcode = read(post::getShortcode);
