@@ -41,7 +41,9 @@ public class RemoteSave {
                 port(),
                 Pref.remoteSaveUser().trim(),
                 Pref.remoteSavePassword(),
-                Pref.remoteSavePath().trim()
+                Pref.remoteSavePath().trim(),
+                Pref.remoteSaveHostKey(),
+                Pref::setRemoteSaveHostKey
         );
     }
 
