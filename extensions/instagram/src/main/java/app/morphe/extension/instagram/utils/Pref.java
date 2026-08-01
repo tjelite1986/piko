@@ -234,6 +234,34 @@ public class Pref {
         return SharedPref.getBooleanPref(Settings.DISABLE_DUPLICATE_DOWNLOAD);
     }
 
+    public static boolean remoteSave() {
+        return SharedPref.getBooleanPref(Settings.REMOTE_SAVE);
+    }
+
+    public static boolean remoteSaveDirect() {
+        return SharedPref.getBooleanPref(Settings.REMOTE_SAVE_DIRECT);
+    }
+
+    public static String remoteSaveHost() {
+        return SharedPref.getStringPref(Settings.REMOTE_SAVE_HOST);
+    }
+
+    public static String remoteSavePort() {
+        return SharedPref.getStringPref(Settings.REMOTE_SAVE_PORT);
+    }
+
+    public static String remoteSaveUser() {
+        return SharedPref.getStringPref(Settings.REMOTE_SAVE_USER);
+    }
+
+    public static String remoteSavePassword() {
+        return SharedPref.getStringPref(Settings.REMOTE_SAVE_PASSWORD);
+    }
+
+    public static String remoteSavePath() {
+        return SharedPref.getStringPref(Settings.REMOTE_SAVE_PATH);
+    }
+
     public static boolean hideNavigationFeed() {
         return SharedPref.getBooleanPref(Settings.HIDE_NAVIGATION_FEED);
     }

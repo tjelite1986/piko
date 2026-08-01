@@ -668,6 +668,62 @@ public class ScreenBuilder {
         );
 
         addPreference(
+                helper.switchPreference(
+                        str("piko_remote_save"),
+                        str("piko_remote_save_desc"),
+                        Settings.REMOTE_SAVE
+                )
+        );
+
+        addPreference(
+                helper.editTextPreference(
+                        str("piko_remote_save_host"),
+                        str("piko_remote_save_host_desc"),
+                        Settings.REMOTE_SAVE_HOST
+                )
+        );
+
+        addPreference(
+                helper.editTextPreference(
+                        str("piko_remote_save_port"),
+                        str("piko_remote_save_port_desc"),
+                        Settings.REMOTE_SAVE_PORT
+                )
+        );
+
+        addPreference(
+                helper.editTextPreference(
+                        str("piko_remote_save_user"),
+                        str("piko_remote_save_user_desc"),
+                        Settings.REMOTE_SAVE_USER
+                )
+        );
+
+        addPreference(
+                helper.editTextPreference(
+                        str("piko_remote_save_password"),
+                        str("piko_remote_save_password_desc"),
+                        Settings.REMOTE_SAVE_PASSWORD
+                )
+        );
+
+        addPreference(
+                helper.editTextPreference(
+                        str("piko_remote_save_path"),
+                        str("piko_remote_save_path_desc"),
+                        Settings.REMOTE_SAVE_PATH
+                )
+        );
+
+        addPreference(
+                helper.switchPreference(
+                        str("piko_remote_save_direct"),
+                        str("piko_remote_save_direct_desc"),
+                        Settings.REMOTE_SAVE_DIRECT
+                )
+        );
+
+        addPreference(
                 helper.buttonPreference(
                         str("piko_download_set_path"),
                         StorageUtils.getCustomPathForDisplay(),

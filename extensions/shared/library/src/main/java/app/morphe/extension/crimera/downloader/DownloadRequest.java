@@ -19,15 +19,27 @@ public class DownloadRequest {
      * own preference store.
      */
     public boolean allowDuplicate;
+    /**
+     * Where the file lands. Null — the default — means the device's download folder;
+     * set, the bytes are streamed through the device and uploaded instead, and nothing
+     * is written to local storage. Like {@link #allowDuplicate} it rides on the request
+     * so the shared downloader never reads either app's preference store.
+     */
+    public RemoteSink remote;
 
     public DownloadRequest(String url, String subFolder, String fileName) {
         this(url, subFolder, fileName, false);
     }
 
     public DownloadRequest(String url, String subFolder, String fileName, boolean allowDuplicate) {
+        this(url, subFolder, fileName, allowDuplicate, null);
+    }
+
+    public DownloadRequest(String url, String subFolder, String fileName, boolean allowDuplicate, RemoteSink remote) {
         this.url = url;
         this.subFolder = subFolder;
         this.fileName = fileName;
         this.allowDuplicate = allowDuplicate;
+        this.remote = remote;
     }
 }
