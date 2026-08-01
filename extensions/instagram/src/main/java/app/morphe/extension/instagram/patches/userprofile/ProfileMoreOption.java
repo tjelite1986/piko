@@ -11,7 +11,9 @@ import static app.morphe.extension.instagram.utils.IgStr.str;
 import android.content.Context;
 import android.app.Dialog;
 import android.content.DialogInterface;
+import android.util.TypedValue;
 import android.view.ViewGroup;
+import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -166,24 +168,37 @@ public class ProfileMoreOption {
             "(?:https?://)?(?:[\\w-]+\\.)+[a-z]{2,}(?:/[^\\s]*)?",
             Pattern.CASE_INSENSITIVE);
 
+    /** The theme's own primary text colour, so the glyph reads on light and dark alike. */
+    private static int themeTextColor(Context context) {
+        TypedValue value = new TypedValue();
+        if (context.getTheme().resolveAttribute(android.R.attr.textColorPrimary, value, true)) {
+            if (value.resourceId != 0) return context.getColor(value.resourceId);
+            if (value.data != 0) return value.data;
+        }
+        return 0xFFFFFFFF;
+    }
+
     public static void addProfileMoreOptionsButton(ViewGroup viewGroup, ProfileInfo profileInfo) {
         try {
             UserData userData = profileInfo.getUserData();
 
             Context context = viewGroup.getContext();
-            InstagramButton button = new InstagramButton(context);
-            button.setText(str("piko_more_profile_options"));
-            button.setStyle(InstagramButtonStyleEnum.PRIMARY);
-            button.setOnClickListener(() ->
-                    moreOptionsDailogueBox(context, userData)
-            );
 
-            int marginPx = Dim.dp12;
-            button.setMargins(marginPx, marginPx, marginPx, marginPx);
+            // A compact glyph rather than a full-width button: the options belong
+            // beside the profile's own small badges, not stretched across the header
+            // where they push the content below out of view.
+            TextView icon = new TextView(context);
+            icon.setText("\u2630");
+            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            icon.setTextColor(themeTextColor(context));
+            icon.setContentDescription(str("piko_more_profile_options"));
+            // Padding rather than size: it keeps the glyph small while giving the
+            // touch target room to be hit.
+            icon.setPadding(Dim.dp8, Dim.dp4, Dim.dp8, Dim.dp4);
+            icon.setOnClickListener(v -> moreOptionsDailogueBox(context, userData));
 
-            IgdsButton igdsButton = button.getIgdsButton();
-            viewGroup.addView(igdsButton);
-            igdsButton.bringToFront();
+            viewGroup.addView(icon);
+            icon.bringToFront();
             viewGroup.requestLayout();
             viewGroup.invalidate();
         } catch (Exception e) {
