@@ -42,8 +42,66 @@ public class UserData extends Entity {
     }
 
     public String getBio() throws Exception {
-        Object additionalUserInfo = getAdditionalUserInfo();
-        return (String) super.getMethod(additionalUserInfo, "BCu");
+        // The literal is a placeholder the patcher rewrites with the accessor name it
+        // resolved, so it has to stay the first — and only — string in this method.
+        return readBio("BCu");
+    }
+
+    /**
+     * The biography, asked of both objects a UserData may be wrapping.
+     * <p>
+     * A profile screen hands us a user whose "additional info" dict answers the
+     * accessor with nothing, while the outer object carries the text; elsewhere it is
+     * the other way round. Rather than guess which screen we are on, ask both and take
+     * the first non-empty answer. An accessor missing from a class is not an error
+     * here either — it just means this was not the object holding the bio.
+     */
+    private String readBio(String accessor) {
+        Object[] candidates;
+        try {
+            candidates = new Object[] { getAdditionalUserInfo(), this.obj };
+        } catch (Exception e) {
+            candidates = new Object[] { this.obj };
+        }
+        for (Object target : candidates) {
+            if (target == null) continue;
+            try {
+                Object value = invokeNoArg(target, accessor);
+                if (value instanceof String && !((String) value).isEmpty()) {
+                    return (String) value;
+                }
+            } catch (Exception ignored) {
+                // wrong object for this accessor — try the next one
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Calls a no-argument method, looking past the object's own class: obfuscated
+     * Instagram models routinely declare an accessor on a superclass or interface,
+     * where getDeclaredMethod alone finds nothing.
+     */
+    private static Object invokeNoArg(Object target, String methodName) throws Exception {
+        for (Class<?> cls = target.getClass(); cls != null; cls = cls.getSuperclass()) {
+            try {
+                java.lang.reflect.Method method = cls.getDeclaredMethod(methodName);
+                method.setAccessible(true);
+                return method.invoke(target);
+            } catch (NoSuchMethodException ignored) {
+                // keep climbing
+            }
+            for (Class<?> iface : cls.getInterfaces()) {
+                try {
+                    java.lang.reflect.Method method = iface.getDeclaredMethod(methodName);
+                    method.setAccessible(true);
+                    return method.invoke(target);
+                } catch (NoSuchMethodException ignored) {
+                    // not on this interface either
+                }
+            }
+        }
+        throw new NoSuchMethodException(methodName);
     }
 
     public String getProfilePictureUrl() throws Exception {
