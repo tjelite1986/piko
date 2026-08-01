@@ -263,6 +263,14 @@ public class Pref {
         return SharedPref.getStringPref(Settings.REMOTE_SAVE_PATH);
     }
 
+    public static String remoteSaveHostKey() {
+        return SharedPref.getStringPref(Settings.REMOTE_SAVE_HOST_KEY);
+    }
+
+    public static void setRemoteSaveHostKey(String value) {
+        SharedPref.setStringPref(Settings.REMOTE_SAVE_HOST_KEY.key, value);
+    }
+
     public static boolean hideNavigationFeed() {
         return SharedPref.getBooleanPref(Settings.HIDE_NAVIGATION_FEED);
     }

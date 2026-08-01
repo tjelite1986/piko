@@ -8,17 +8,20 @@
 package app.morphe.extension.instagram.patches.download;
 
 import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.HostKey;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpATTRS;
 import com.jcraft.jsch.SftpException;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 import app.morphe.extension.crimera.downloader.RemoteSink;
 
@@ -35,27 +38,33 @@ import app.morphe.extension.crimera.downloader.RemoteSink;
  */
 public class SftpSink implements RemoteSink {
 
-    /** Verified host key, "ssh-ed25519 AAAAC3..." as printed by the settings screen. */
     private final String host;
     private final int port;
     private final String username;
     private final String password;
     private final String basePath;
+    /** Pinned host key as "<type> <base64>", empty until the first connection learns it. */
+    private final String knownHostKey;
+    private final Consumer<String> onHostKeyLearned;
 
     private Session session;
     private ChannelSftp channel;
 
-    public SftpSink(String host, int port, String username, String password, String basePath) {
+    public SftpSink(String host, int port, String username, String password, String basePath,
+                    String knownHostKey, Consumer<String> onHostKeyLearned) {
         this.host = host;
         this.port = port;
         this.username = username;
         this.password = password;
         this.basePath = normalize(basePath);
+        this.knownHostKey = knownHostKey == null ? "" : knownHostKey.trim();
+        this.onHostKeyLearned = onHostKeyLearned;
     }
 
     @Override
     public boolean upload(File source, String subFolder, String fileName, boolean allowDuplicate) throws Exception {
         String directory = ensureDirectory(subFolder);
+        fileName = safeName(fileName);
         String target = directory + "/" + fileName;
         if (exists(target)) {
             if (!allowDuplicate) return false;
@@ -69,7 +78,7 @@ public class SftpSink implements RemoteSink {
 
     @Override
     public void uploadBytes(byte[] content, String subFolder, String fileName) throws Exception {
-        String target = ensureDirectory(subFolder) + "/" + fileName;
+        String target = ensureDirectory(subFolder) + "/" + safeName(fileName);
         // Same rule as the local sidecar: an existing one is left alone.
         if (exists(target)) return;
         put(new java.io.ByteArrayInputStream(content), target);
@@ -97,21 +106,47 @@ public class SftpSink implements RemoteSink {
         if (channel != null && channel.isConnected()) return channel;
 
         JSch jsch = new JSch();
+        // Trust on first use, then pin. A phone has no known_hosts and no way to prompt
+        // mid-download, but accepting any key on every connection would hand the account
+        // password to anyone able to answer for the host — and this traffic leaves the
+        // local network. So the first connection records the key and every later one is
+        // checked against it; a server that comes back with a different key is refused
+        // rather than silently trusted. Clearing the saved key in settings is what makes
+        // it learn a new one, after a genuine server rebuild.
+        boolean pinned = !knownHostKey.isEmpty();
+        if (pinned) {
+            jsch.setKnownHosts(new ByteArrayInputStream(
+                    (knownHostsLine() + "\n").getBytes(StandardCharsets.UTF_8)));
+        }
+
         session = jsch.getSession(username, host, port);
         session.setPassword(password);
 
         Properties config = new Properties();
-        // The phone has no known_hosts to check against and no way to prompt for one
-        // mid-download. The alternative to accepting the key is refusing every upload,
-        // so the trade is stated in the settings screen rather than hidden here.
-        config.put("StrictHostKeyChecking", "no");
+        config.put("StrictHostKeyChecking", pinned ? "yes" : "no");
         session.setConfig(config);
         session.setTimeout(30_000);
         session.connect(20_000);
 
+        if (!pinned) {
+            HostKey presented = session.getHostKey();
+            if (presented != null && onHostKeyLearned != null) {
+                onHostKeyLearned.accept(presented.getType() + " " + presented.getKey());
+            }
+        }
+
         channel = (ChannelSftp) session.openChannel("sftp");
         channel.connect(20_000);
         return channel;
+    }
+
+    /**
+     * The pinned key as an OpenSSH known_hosts entry. A non-default port belongs in
+     * "[host]:port" brackets, which is the form JSch matches against.
+     */
+    private String knownHostsLine() {
+        String hostField = port == 22 ? host : "[" + host + "]:" + port;
+        return hostField + " " + knownHostKey;
     }
 
     private void put(InputStream input, String target) throws Exception {
@@ -139,7 +174,7 @@ public class SftpSink implements RemoteSink {
         if (subFolder != null && !subFolder.isBlank()) {
             for (String part : subFolder.split("/")) {
                 if (part.isBlank()) continue;
-                path = path + "/" + part;
+                path = path + "/" + safeName(part);
                 makeDirectory(sftp, path);
             }
         }
@@ -167,6 +202,24 @@ public class SftpSink implements RemoteSink {
             if (e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) return false;
             throw e;
         }
+    }
+
+    /**
+     * One path segment, with anything that could climb out of the target folder taken
+     * out. Folder and file names are built from the post's username and caption, which
+     * are values Instagram hands us rather than values we chose — a name of ".." or one
+     * carrying a slash would otherwise write outside the configured folder.
+     */
+    private static String safeName(String name) {
+        String cleaned = name == null ? "" : name.trim();
+        StringBuilder out = new StringBuilder(cleaned.length());
+        for (int i = 0; i < cleaned.length(); i++) {
+            char c = cleaned.charAt(i);
+            out.append(c == '/' || c == '\\' || c < 0x20 ? '_' : c);
+        }
+        String result = out.toString().trim();
+        if (result.isEmpty() || result.equals(".") || result.equals("..")) return "_";
+        return result;
     }
 
     /** "clip.mp4" -> "clip (1).mp4", mirroring the local downloader's rule. */

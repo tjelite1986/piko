@@ -151,9 +151,11 @@ Note: On a clean install, the \'Tip\' animation may appear but will stop on its 
     <string name="piko_remote_save_user">Username</string>
     <string name="piko_remote_save_user_desc">Account to log in as</string>
     <string name="piko_remote_save_password">Password</string>
-    <string name="piko_remote_save_password_desc">Stored in this app\'s settings. The server\'s host key is accepted without checking, so use this on a server you control</string>
+    <string name="piko_remote_save_password_desc">Stored in this app\'s settings</string>
     <string name="piko_remote_save_path">Folder</string>
     <string name="piko_remote_save_path_desc">Where uploads land, e.g. /drop/instagram. A subfolder per creator is created inside it</string>
+    <string name="piko_remote_save_host_key">Server key</string>
+    <string name="piko_remote_save_host_key_desc">Recorded on the first upload and checked on every one after it. An upload is refused if the server answers with a different key; clear this field if you rebuilt the server on purpose</string>
     <string name="piko_remote_save_direct">Direct download goes to the server</string>
     <string name="piko_remote_save_direct_desc">With direct download on, save to the server instead of this device</string>
     <string name="piko_download_current_media_remote">Download to server</string>

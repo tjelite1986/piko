@@ -733,6 +733,14 @@ public class ScreenBuilder {
         );
 
         addPreference(
+                helper.editTextPreference(
+                        str("piko_remote_save_host_key"),
+                        str("piko_remote_save_host_key_desc"),
+                        Settings.REMOTE_SAVE_HOST_KEY
+                )
+        );
+
+        addPreference(
                 helper.switchPreference(
                         str("piko_remote_save_direct"),
                         str("piko_remote_save_direct_desc"),
