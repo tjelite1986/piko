@@ -685,6 +685,14 @@ public class ScreenBuilder {
         );
 
         addPreference(
+                helper.buttonPreference(
+                        str("piko_favorite_pages"),
+                        str("piko_favorite_pages_desc"),
+                        "piko_favorite_pages"
+                )
+        );
+
+        addPreference(
                 helper.switchPreference(
                         str("piko_remote_save"),
                         str("piko_remote_save_desc"),
