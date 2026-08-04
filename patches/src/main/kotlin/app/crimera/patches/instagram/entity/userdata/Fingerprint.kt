@@ -111,10 +111,18 @@ internal object LowResProfilePictureUserTreeDictFingerprint : Fingerprint(
 
 internal object HDProfileInfoUserTreeDictFingerprint : Fingerprint(
     definingClass = LIVE_TREE_USER_DICT_CLASS,
-     filters =
+    filters =
         listOf(
             string("hd_profile_pic_url_info"),
         ),
+    // The class initialiser holds every field-name string this class knows,
+    // "hd_profile_pic_url_info" among them, so a string filter alone matched
+    // <clinit> and the accessor was rewritten to call THAT — an error on every
+    // "Download profile picture" and an empty picture in the metadata sidecar.
+    // A getter here takes nothing and is not the initialiser.
+    custom = { methodDef, _ ->
+        methodDef.name != "<clinit>" && methodDef.parameters.isEmpty()
+    },
 )
 
 internal object IsVerifiedUserTreeDictFingerprint : Fingerprint(

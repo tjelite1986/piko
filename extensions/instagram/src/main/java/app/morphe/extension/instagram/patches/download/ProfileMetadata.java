@@ -112,16 +112,16 @@ public class ProfileMetadata {
         new Thread(() -> {
             RemoteSink sink = RemoteSave.sink();
             if (sink == null) {
-                Utils.showToastShort(str("piko_remote_save_not_configured"));
+                toast(str("piko_remote_save_not_configured"));
                 return;
             }
             try {
                 sink.uploadBytes(payload, subFolder, fileName);
-                Utils.showToastShort(str("piko_profile_saved") + " " + sink.describe());
+                toast(str("piko_profile_saved") + " " + sink.describe());
             } catch (Exception e) {
                 PikoUtils.logger(e);
                 Logger.printException(() -> "Profile upload failed", e);
-                Utils.showToastShort(str("piko_profile_save_failed") + ": " + e.getMessage());
+                toast(str("piko_profile_save_failed") + ": " + e.getMessage());
             } finally {
                 try {
                     sink.close();
@@ -130,6 +130,16 @@ public class ProfileMetadata {
                 }
             }
         }, "piko-profile-upload").start();
+    }
+
+    /**
+     * A toast from the upload thread. Utils shows it on the caller's looper, and
+     * a plain Thread has none — without this the upload reports neither success
+     * nor failure, which is exactly how a silent failure reads to the person who
+     * tapped the menu item.
+     */
+    private static void toast(String message) {
+        Utils.runOnMainThread(() -> Utils.showToastShort(message));
     }
 
     private static String timestamp() {
