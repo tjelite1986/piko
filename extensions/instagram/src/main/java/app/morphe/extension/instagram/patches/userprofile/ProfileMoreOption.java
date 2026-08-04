@@ -29,6 +29,8 @@ import app.morphe.extension.instagram.settings.ActivityHook;
 import app.morphe.extension.crimera.PikoUtils;
 import app.morphe.extension.instagram.utils.Pref;
 import app.morphe.extension.instagram.patches.download.DownloadUtils;
+import app.morphe.extension.instagram.patches.download.ProfileMetadata;
+import app.morphe.extension.instagram.patches.download.RemoteSave;
 import app.morphe.extension.instagram.entity.InstagramDialogBox;
 import app.morphe.extension.instagram.entity.InstagramButton;
 import app.morphe.extension.instagram.entity.InstagramButtonStyleEnum;
@@ -50,6 +52,9 @@ public class ProfileMoreOption {
             ArrayList<String> options = new ArrayList<>();
             options.add(str("piko_view_profile_picture"));
             options.add(str("piko_download_profile_picture"));
+            // Only offered when there is a server to send it to — an entry that
+            // can only fail is worse than no entry.
+            if (RemoteSave.isConfigured()) options.add(str("piko_save_profile_to_server"));
             options.add(str("piko_copy_username"));
             options.add(str("piko_copy_full_name"));
             options.add(str("piko_copy_user_id"));
@@ -125,6 +130,9 @@ public class ProfileMoreOption {
                             String subFolder = DownloadUtils.getSubfolderName(username);
                             DownloadUtils.downloadMediaUrl(context, url, subFolder, downloadFilename);
                             toCopy = false;
+
+                        } else if (selectedOption.equals(str("piko_save_profile_to_server"))) {
+                            ProfileMetadata.saveToServer(context, userData);
 
                         } else if (selectedOption.equals(str("piko_debug"))) {
                             ObjectBrowser.browseObject(context, userData.getObject());
